@@ -60,6 +60,7 @@
 #endif
 #endif
 
+#include "psandbox.h"
 /*
  * forward declarations
  */
@@ -454,7 +455,7 @@ conn *conn_new(const int sfd, enum conn_states init_state,
                 const int read_buffer_size, enum network_transport transport,
                 struct event_base *base) {
     conn *c;
-
+    PSandbox *psandbox;
     assert(sfd >= 0 && sfd < max_fds);
     c = conns[sfd];
 
@@ -467,7 +468,7 @@ conn *conn_new(const int sfd, enum conn_states init_state,
             return NULL;
         }
         MEMCACHED_CONN_CREATE(c);
-
+        printf("thread %d creates new connection %d\n",gettid(),c->sfd);
         c->rbuf = c->wbuf = 0;
         c->ilist = 0;
         c->suffixlist = 0;
@@ -572,6 +573,8 @@ conn *conn_new(const int sfd, enum conn_states init_state,
     c->noreply = false;
 
     event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
+    psandbox = create_psandbox();
+    unbind_psandbox(c->sfd,psandbox);
     event_base_set(base, &c->event);
     c->ev_flags = event_flags;
 
@@ -4479,7 +4482,7 @@ static void drive_machine(conn *c) {
 #endif
 
     assert(c != NULL);
-
+    printf("the %d connection state is %d, thread id %d\n",c->sfd,c->state,gettid());
     while (!stop) {
 
         switch(c->state) {
@@ -4812,13 +4815,16 @@ static void drive_machine(conn *c) {
 }
 
 void event_handler(const int fd, const short which, void *arg) {
-    conn *c;
+  conn *c;
+  PSandbox *p_sandbox;
 
-    c = (conn *)arg;
-    assert(c != NULL);
+  c = (conn *)arg;
+  assert(c != NULL);
 
-    c->which = which;
+  c->which = which;
 
+  p_sandbox = bind_psandbox(c->sfd);
+  active_psandbox(p_sandbox);
     /* sanity */
     if (fd != c->sfd) {
         if (settings.verbose > 0)
@@ -4826,9 +4832,10 @@ void event_handler(const int fd, const short which, void *arg) {
         conn_close(c);
         return;
     }
-
+    printf("thread %d calls the event handler by connection %d\n",gettid(),c->sfd);
     drive_machine(c);
-
+    freeze_psandbox(p_sandbox);
+    unbind_psandbox(c->sfd,p_sandbox);
     /* wait for next event */
     return;
 }
@@ -5587,7 +5594,7 @@ int main (int argc, char **argv) {
     int retval = EXIT_SUCCESS;
     /* listening sockets */
     static int *l_socket = NULL;
-
+  printf("the main thread id %d\n",gettid());
     /* udp socket */
     static int *u_socket = NULL;
     bool protocol_specified = false;

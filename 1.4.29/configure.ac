@@ -165,10 +165,19 @@ AC_SUBST(PROFILER_LDFLAGS)
 AC_ARG_ENABLE(coverage,
   [AS_HELP_STRING([--disable-coverage],[Disable code coverage])])
 
+if ${PSANDBOXDIR}; then
+ echo "PSANDBOXDIR environment variable is not set, building PostgreSQL without psandbox."
+ PSANDBOXSRC_INCLUDE="${PSANDBOXDIR}/libs/include"
+ PSANDBOXSRC_LIB="${PSANDBOXDIR}/build/libs/"
+else
+ PSANDBOXSRC_INCLUDE="${PSANDBOXDIR}/libs/include"
+ PSANDBOXSRC_LIB="${PSANDBOXDIR}/build/libs/"
+fi
+
 if test "x$enable_coverage" != "xno"; then
    if test "$GCC" = "yes" -a "$ICC" != "yes" -a "$CLANG" != "yes"
    then
-      CFLAGS="$CFLAGS -pthread"
+      CFLAGS="$CFLAGS -I${PSANDBOXSRC_INCLUDE} -pthread"
       AC_PATH_PROG([PROFILER], [gcov], "no", [$PATH])
       if test "x$PROFILER" != "xno"; then
          # Issue 97: The existense of gcov doesn't mean we have -lgcov
@@ -295,7 +304,7 @@ AC_CACHE_CHECK([for libevent directory], ac_cv_libevent_dir, [
 ])
   fi
 ])
-LIBS="-levent $LIBS"
+LIBS="-levent $LIBS -L${PSANDBOXSRC_LIB} -lpsandbox"
 if test $ac_cv_libevent_dir != "(system)"; then
   if test -d "$ac_cv_libevent_dir/lib" ; then
     LDFLAGS="-L$ac_cv_libevent_dir/lib $LDFLAGS"

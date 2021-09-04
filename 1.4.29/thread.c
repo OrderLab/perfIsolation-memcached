@@ -392,7 +392,7 @@ static void thread_libevent_process(int fd, short which, void *arg) {
     CQ_ITEM *item;
     char buf[1];
     unsigned int timeout_fd;
-
+  printf("the event is %d, thread id %d\n",fd, gettid());
     if (read(fd, buf, 1) != 1) {
         if (settings.verbose > 0)
             fprintf(stderr, "Can't read from libevent pipe\n");
