@@ -47,6 +47,7 @@
 #include <limits.h>
 #include <sysexits.h>
 #include <stddef.h>
+#include <syscall.h>
 
 /* FreeBSD 4.x doesn't have IOV_MAX exposed. */
 #ifndef IOV_MAX
@@ -468,7 +469,7 @@ conn *conn_new(const int sfd, enum conn_states init_state,
             return NULL;
         }
         MEMCACHED_CONN_CREATE(c);
-        printf("thread %d creates new connection %d\n",gettid(),c->sfd);
+
         c->rbuf = c->wbuf = 0;
         c->ilist = 0;
         c->suffixlist = 0;
@@ -569,10 +570,12 @@ conn *conn_new(const int sfd, enum conn_states init_state,
     c->write_and_go = init_state;
     c->write_and_free = 0;
     c->item = 0;
-
+//    int id = syscall(SYS_gettid);
+//    printf("thread %ld creates new connection %d\n",id,c->sfd);
     c->noreply = false;
 
     event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
+
     psandbox = create_psandbox();
     unbind_psandbox(c->sfd,psandbox);
     event_base_set(base, &c->event);
@@ -670,7 +673,9 @@ void conn_free(conn *c) {
 
 static void conn_close(conn *c) {
     assert(c != NULL);
-
+    PSandbox *psandbox = get_current_psandbox();
+    if (psandbox)
+      release_psandbox(psandbox);
     /* delete the event, the socket and the conn */
     event_del(&c->event);
 
@@ -4482,7 +4487,7 @@ static void drive_machine(conn *c) {
 #endif
 
     assert(c != NULL);
-    printf("the %d connection state is %d, thread id %d\n",c->sfd,c->state,gettid());
+//    printf("the %d connection state is %d, thread id %ld\n",c->sfd,c->state,syscall(SYS_gettid));
     while (!stop) {
 
         switch(c->state) {
@@ -4832,10 +4837,14 @@ void event_handler(const int fd, const short which, void *arg) {
         conn_close(c);
         return;
     }
-    printf("thread %d calls the event handler by connection %d\n",gettid(),c->sfd);
+
     drive_machine(c);
-    freeze_psandbox(p_sandbox);
-    unbind_psandbox(c->sfd,p_sandbox);
+    p_sandbox = get_current_psandbox();
+    if (p_sandbox) {
+      freeze_psandbox(p_sandbox);
+      unbind_psandbox(c->sfd,p_sandbox);
+    }
+
     /* wait for next event */
     return;
 }
@@ -5594,7 +5603,7 @@ int main (int argc, char **argv) {
     int retval = EXIT_SUCCESS;
     /* listening sockets */
     static int *l_socket = NULL;
-  printf("the main thread id %d\n",gettid());
+    printf("the main thread id %ld\n",syscall(SYS_gettid));
     /* udp socket */
     static int *u_socket = NULL;
     bool protocol_specified = false;
