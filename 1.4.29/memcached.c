@@ -456,7 +456,7 @@ conn *conn_new(const int sfd, enum conn_states init_state,
                 const int read_buffer_size, enum network_transport transport,
                 struct event_base *base) {
     conn *c;
-    PSandbox *psandbox;
+    int psandbox;
     assert(sfd >= 0 && sfd < max_fds);
     c = conns[sfd];
 
@@ -673,9 +673,9 @@ void conn_free(conn *c) {
 
 static void conn_close(conn *c) {
     assert(c != NULL);
-    PSandbox *psandbox = get_current_psandbox();
-    if (psandbox)
-      release_psandbox(psandbox);
+    int psandbox_id = get_current_psandbox();
+    if (psandbox_id != -1)
+      release_psandbox(psandbox_id);
     /* delete the event, the socket and the conn */
     event_del(&c->event);
 
@@ -4821,15 +4821,15 @@ static void drive_machine(conn *c) {
 
 void event_handler(const int fd, const short which, void *arg) {
   conn *c;
-  PSandbox *p_sandbox;
+  int sandbox_id;
 
   c = (conn *)arg;
   assert(c != NULL);
 
   c->which = which;
 
-  p_sandbox = bind_psandbox(c->sfd);
-  active_psandbox(p_sandbox);
+  sandbox_id = bind_psandbox(c->sfd);
+
     /* sanity */
     if (fd != c->sfd) {
         if (settings.verbose > 0)
@@ -4839,10 +4839,9 @@ void event_handler(const int fd, const short which, void *arg) {
     }
 
     drive_machine(c);
-    p_sandbox = get_current_psandbox();
-    if (p_sandbox) {
-      freeze_psandbox(p_sandbox);
-      unbind_psandbox(c->sfd,p_sandbox);
+    sandbox_id = get_current_psandbox();
+    if (sandbox_id) {
+      unbind_psandbox(c->sfd,sandbox_id);
     }
 
     /* wait for next event */
