@@ -570,14 +570,17 @@ conn *conn_new(const int sfd, enum conn_states init_state,
     c->write_and_go = init_state;
     c->write_and_free = 0;
     c->item = 0;
-//    int id = syscall(SYS_gettid);
-//    printf("thread %ld creates new connection %d\n",id,c->sfd);
+
     c->noreply = false;
 
     event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
+    IsolationRule rule;
+    rule.type = RELATIVE;
+    rule.isolation_level = 10;
+    rule.priority = LOW_PRIORITY;
+    psandbox = create_psandbox(rule);
 
-    psandbox = create_psandbox();
-    unbind_psandbox(c->sfd,psandbox);
+    unbind_psandbox(c->sfd,psandbox,UNBIND_NONE);
     event_base_set(base, &c->event);
     c->ev_flags = event_flags;
 
@@ -4818,11 +4821,11 @@ static void drive_machine(conn *c) {
 
     return;
 }
-
+int count = 0;
 void event_handler(const int fd, const short which, void *arg) {
   conn *c;
   int sandbox_id;
-
+  count++;
   c = (conn *)arg;
   assert(c != NULL);
 
@@ -4840,10 +4843,11 @@ void event_handler(const int fd, const short which, void *arg) {
 
     drive_machine(c);
     sandbox_id = get_current_psandbox();
-    if (sandbox_id) {
-      unbind_psandbox(c->sfd,sandbox_id);
+    if (sandbox_id != -1) {
+      unbind_psandbox(c->sfd,sandbox_id,UNBIND_NONE);
     }
 
+    count--;
     /* wait for next event */
     return;
 }
