@@ -4581,6 +4581,7 @@ static void drive_machine(conn *c) {
             break;
 
         case conn_parse_cmd :
+          int sandbox_id;
             sandbox_id = bind_psandbox(c->sfd);
             if (try_read_command(c) == 0) {
                 /* wee need more data! */
@@ -4828,7 +4829,7 @@ static void drive_machine(conn *c) {
 int count = 0;
 void event_handler(const int fd, const short which, void *arg) {
   conn *c;
-  int sandbox_id;
+
   count++;
   c = (conn *)arg;
   assert(c != NULL);
