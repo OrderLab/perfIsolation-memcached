@@ -4483,6 +4483,7 @@ static void drive_machine(conn *c) {
     int nreqs = settings.reqs_per_event;
     int res;
     const char *str;
+    int sandbox_id;
 #ifdef HAVE_ACCEPT4
     static int  use_accept4 = 1;
 #else
@@ -4581,7 +4582,7 @@ static void drive_machine(conn *c) {
             break;
 
         case conn_parse_cmd :
-          int sandbox_id;
+
             sandbox_id = bind_psandbox(c->sfd);
             if (try_read_command(c) == 0) {
                 /* wee need more data! */
