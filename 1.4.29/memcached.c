@@ -576,7 +576,7 @@ conn *conn_new(const int sfd, enum conn_states init_state,
     event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
     IsolationRule rule;
     rule.type = RELATIVE;
-    rule.isolation_level = 10;
+    rule.isolation_level = 50;
     rule.priority = LOW_PRIORITY;
     psandbox = create_psandbox(rule);
 
@@ -4581,11 +4581,15 @@ static void drive_machine(conn *c) {
             break;
 
         case conn_parse_cmd :
+            sandbox_id = bind_psandbox(c->sfd);
             if (try_read_command(c) == 0) {
                 /* wee need more data! */
                 conn_set_state(c, conn_waiting);
             }
-
+            sandbox_id = get_current_psandbox();
+            if (sandbox_id != -1) {
+              unbind_psandbox(c->sfd,sandbox_id,UNBIND_NONE);
+            }
             break;
 
         case conn_new_cmd:
@@ -4831,7 +4835,7 @@ void event_handler(const int fd, const short which, void *arg) {
 
   c->which = which;
 
-  sandbox_id = bind_psandbox(c->sfd);
+//  sandbox_id = bind_psandbox(c->sfd);
 
     /* sanity */
     if (fd != c->sfd) {
@@ -4842,10 +4846,6 @@ void event_handler(const int fd, const short which, void *arg) {
     }
 
     drive_machine(c);
-    sandbox_id = get_current_psandbox();
-    if (sandbox_id != -1) {
-      unbind_psandbox(c->sfd,sandbox_id,UNBIND_NONE);
-    }
 
     count--;
     /* wait for next event */
