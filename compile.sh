@@ -14,4 +14,6 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 make install
-
+cd ..
+echo "export PATH=`pwd`/dist/bin:`pwd`/mutilate/:$PATH" >> $HOME/.bashrc
+./init_benchmark.sh
