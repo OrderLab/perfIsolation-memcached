@@ -4582,15 +4582,14 @@ static void drive_machine(conn *c) {
             break;
 
         case conn_parse_cmd :
-
-            sandbox_id = bind_psandbox(c->sfd);
+        //    sandbox_id = bind_psandbox(c->sfd);
             if (try_read_command(c) == 0) {
                 /* wee need more data! */
                 conn_set_state(c, conn_waiting);
             }
-            sandbox_id = get_current_psandbox();
+    //        sandbox_id = get_current_psandbox();
             if (sandbox_id != -1) {
-              unbind_psandbox(c->sfd,sandbox_id,UNBIND_NONE);
+    //          unbind_psandbox(c->sfd,sandbox_id,UNBIND_NONE);
             }
             break;
 
